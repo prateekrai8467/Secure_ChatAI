@@ -1,3 +1,5 @@
+import mongoose from 'mongoose';
+
 /**
  * Request validation middleware for chat endpoints.
  * Validates message formats, whitelists roles, and prevents oversized payloads.
@@ -8,7 +10,16 @@ const MAX_CONTEXT_TURNS = 20;
 const ALLOWED_ROLES = new Set(['user', 'assistant']);
 
 export const validateChatRequest = (req, res, next) => {
-  const { message, messages } = req.body || {};
+  const { message, messages, sessionId } = req.body || {};
+
+  if (sessionId !== undefined && sessionId !== null && sessionId !== '') {
+    if (typeof sessionId !== 'string' || !mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid "sessionId" format: must be a valid 24-character hexadecimal ObjectId string.'
+      });
+    }
+  }
 
   // Case 1: Simple single-message request
   if (message !== undefined) {
@@ -37,7 +48,8 @@ export const validateChatRequest = (req, res, next) => {
     req.validatedInput = {
       isMultiTurn: false,
       userMessage: trimmed,
-      messages: [{ role: 'user', content: trimmed }]
+      messages: [{ role: 'user', content: trimmed }],
+      sessionId: sessionId || null
     };
 
     return next();
@@ -115,7 +127,8 @@ export const validateChatRequest = (req, res, next) => {
     req.validatedInput = {
       isMultiTurn: true,
       userMessage: lastMessage.content,
-      messages: cleanedMessages
+      messages: cleanedMessages,
+      sessionId: sessionId || null
     };
 
     return next();

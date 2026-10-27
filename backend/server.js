@@ -1,7 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { connectDB } from './config/db.js';
 import chatRoutes from './routes/chat.js';
+import sessionsRoutes from './routes/sessions.js';
+import telemetryRoutes from './routes/telemetry.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -30,12 +34,18 @@ if (process.env.NODE_ENV === 'development') {
 
 // API Routes
 app.use('/api', chatRoutes);
+app.use('/api/chats', sessionsRoutes);
+app.use('/api/telemetry', telemetryRoutes);
 
 // Error Handling Middleware
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-import { fileURLToPath } from 'url';
+// Connect to MongoDB (skip during automated tests)
+const isTest = process.env.NODE_ENV === 'test' || process.argv.some(arg => arg.includes('test'));
+if (!isTest) {
+  connectDB();
+}
 
 // Only listen if executed directly (not when imported in tests)
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
@@ -44,10 +54,11 @@ if (isMain && process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`========================================`);
     console.log(` SecureChat AI Backend API`);
-    console.log(` Port:    http://localhost:${PORT}`);
-    console.log(` Env:     ${process.env.NODE_ENV || 'development'}`);
-    console.log(` Model:   ${process.env.OLLAMA_MODEL || 'llama3.2:1b'}`);
-    console.log(` Ollama:  ${process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434'}`);
+    console.log(` Port:       http://localhost:${PORT}`);
+    console.log(` Env:        ${process.env.NODE_ENV || 'development'}`);
+    console.log(` Model:      ${process.env.OLLAMA_MODEL || 'llama3.2:1b'}`);
+    console.log(` Ollama:     ${process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434'}`);
+    console.log(` Database:   ${process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/securechat_ai'}`);
     console.log(`========================================`);
   });
 }

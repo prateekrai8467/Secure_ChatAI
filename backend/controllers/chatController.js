@@ -1,17 +1,97 @@
+import mongoose from 'mongoose';
 import { ollamaService } from '../services/ollamaService.js';
+import { getDBStatus } from '../config/db.js';
+import { ChatSession } from '../models/ChatSession.js';
+import { Message } from '../models/Message.js';
 
 /**
  * Handle chat requests from clients.
+ * Supports stateless chat as well as persistent multi-turn storage when sessionId is provided.
  */
 export const handleChat = async (req, res, next) => {
   try {
-    const { messages, userMessage, isMultiTurn } = req.validatedInput;
+    const { messages, userMessage, isMultiTurn, sessionId } = req.validatedInput;
+    const dbStatus = getDBStatus();
 
-    const result = await ollamaService.chat(messages);
+    let session = null;
+    let customSystemPrompt = null;
+
+    // Check if session exists in MongoDB when sessionId is passed and DB is online
+    if (sessionId && dbStatus.connected) {
+      session = await ChatSession.findOne({ _id: sessionId, isActive: true });
+      if (!session) {
+        return res.status(404).json({
+          success: false,
+          error: `Chat session ${sessionId} not found or has been closed.`
+        });
+      }
+      if (session.systemPrompt) {
+        customSystemPrompt = session.systemPrompt;
+      }
+    }
+
+    // Call Ollama inference service
+    const options = {};
+    if (customSystemPrompt) {
+      options.systemPrompt = customSystemPrompt;
+    }
+
+    const result = await ollamaService.chat(messages, options);
+
+    // Save messages to MongoDB if persistent session is active
+    let savedUserMsgId = null;
+    let savedAssistantMsgId = null;
+
+    if (session && dbStatus.connected) {
+      try {
+        const [savedUser, savedAssistant] = await Promise.all([
+          Message.create({
+            sessionId: session._id,
+            role: 'user',
+            content: userMessage,
+            model: result.model
+          }),
+          Message.create({
+            sessionId: session._id,
+            role: 'assistant',
+            content: result.answer,
+            model: result.model,
+            tokens: {
+              prompt: result.promptTokens,
+              completion: result.evalTokens,
+              total: result.promptTokens + result.evalTokens
+            },
+            durationMs: result.durationMs
+          })
+        ]);
+
+        savedUserMsgId = savedUser._id;
+        savedAssistantMsgId = savedAssistant._id;
+
+        // Auto-generate title if session is brand new
+        const sessionUpdates = {
+          $inc: { messageCount: 2 },
+          lastMessageAt: new Date()
+        };
+
+        if (session.title === 'New Conversation' && session.messageCount === 0) {
+          sessionUpdates.title = userMessage.length > 42
+            ? `${userMessage.substring(0, 42).trim()}...`
+            : userMessage.trim();
+        }
+
+        await ChatSession.findByIdAndUpdate(session._id, sessionUpdates);
+      } catch (dbErr) {
+        // Log DB save error without failing the inference response to the user
+        console.error('[Database] Failed to persist messages:', dbErr.message);
+      }
+    }
 
     return res.status(200).json({
       success: true,
       answer: result.answer,
+      sessionId: session ? session._id : null,
+      messageIds: savedAssistantMsgId ? { user: savedUserMsgId, assistant: savedAssistantMsgId } : null,
       metadata: {
         model: result.model,
         durationMs: result.durationMs,
@@ -19,7 +99,8 @@ export const handleChat = async (req, res, next) => {
           prompt: result.promptTokens,
           completion: result.evalTokens
         },
-        multiTurn: isMultiTurn
+        multiTurn: isMultiTurn,
+        persisted: Boolean(session && savedAssistantMsgId)
       }
     });
   } catch (err) {
@@ -28,15 +109,17 @@ export const handleChat = async (req, res, next) => {
 };
 
 /**
- * Health-check endpoint returning system and SLM status.
+ * Health-check endpoint returning system, SLM, and MongoDB status.
  */
 export const handleHealthCheck = async (req, res) => {
   const ollamaHealth = await ollamaService.checkHealth();
+  const dbHealth = getDBStatus();
 
-  const statusCode = ollamaHealth.isRunning ? 200 : 503;
+  const isHealthy = ollamaHealth.isRunning && dbHealth.connected;
+  const isPartiallyAvailable = ollamaHealth.isRunning || dbHealth.connected;
 
-  return res.status(statusCode).json({
-    status: ollamaHealth.isRunning ? 'healthy' : 'degraded',
+  return res.status(isPartiallyAvailable ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : isPartiallyAvailable ? 'degraded' : 'unhealthy',
     service: 'SecureChat AI Backend',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
@@ -44,6 +127,11 @@ export const handleHealthCheck = async (req, res) => {
       connected: ollamaHealth.isRunning,
       models: ollamaHealth.models || [],
       error: ollamaHealth.error || null
+    },
+    database: {
+      connected: dbHealth.connected,
+      state: dbHealth.state,
+      name: dbHealth.name
     }
   });
 };
