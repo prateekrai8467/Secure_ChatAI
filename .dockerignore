@@ -1,0 +1,44 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+*/node_modules
+__pycache__
+*/__pycache__
+*.py[cod]
+*$py.class
+env
+venv
+.venv
+
+# Secrets and local environments
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Build artifacts & logs
+dist
+*/dist
+build
+*/build
+coverage
+*/coverage
+logs
+*.log
+npm-debug.log*
+
+# Database & local data
+data
+mongodata
+*.sqlite
+
+# IDE & OS files
+.idea
+.vscode
+.DS_Store
+Thumbs.db

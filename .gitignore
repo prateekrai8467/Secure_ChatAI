@@ -64,6 +64,11 @@ mongodata/
 *.sqlite
 *.sqlite3
 
+# Docker & Container Local Stores
+.docker/
+docker-compose.override.yml
+*.docker.log
+
 # Logs & Diagnostics
 logs/
 *.log
