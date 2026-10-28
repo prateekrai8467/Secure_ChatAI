@@ -43,6 +43,9 @@ class ScanResponse(BaseModel):
     risk_level: str
     detected_tokens: List[str]
     token_details: List[TokenDetail]
+    normalized_text: Optional[str] = None
+    obfuscations_detected: Optional[List[str]] = None
+    inspection_variant: Optional[str] = None
     latency_ms: float
     explanation: str
     sessionId: Optional[str] = None
@@ -75,6 +78,9 @@ def scan_prompt(request: ScanRequest):
         risk_level=result["risk_level"],
         detected_tokens=result["detected_tokens"],
         token_details=[TokenDetail(**t) for t in result["token_details"]],
+        normalized_text=result.get("normalized_text"),
+        obfuscations_detected=result.get("obfuscations_detected", []),
+        inspection_variant=result.get("inspection_variant", "original"),
         latency_ms=result["latency_ms"],
         explanation=result["explanation"],
         sessionId=request.sessionId

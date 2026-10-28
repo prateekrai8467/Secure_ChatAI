@@ -1,6 +1,7 @@
 """
 SecureChat AI - Prompt Injection Detector Engine.
-Applies trained calibrated Linear SVM and TF-IDF pipeline with token-level explainability.
+Applies trained calibrated Linear SVM and TF-IDF pipeline with token-level explainability
+and modular pre-classification normalization (zero-width, homoglyph, leetspeak, base64).
 """
 
 import re
@@ -11,6 +12,8 @@ from typing import Dict, List, Any, Optional
 
 import joblib
 
+from normalizer import normalize_prompt
+
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 MODEL_PATH = MODELS_DIR / "pipeline.joblib"
 WEIGHTS_PATH = MODELS_DIR / "feature_weights.json"
@@ -18,7 +21,8 @@ METADATA_PATH = MODELS_DIR / "model_metadata.json"
 
 class PromptInjectionDetector:
     """
-    ML-driven prompt injection detector using Calibrated Linear SVM and explainable feature weights.
+    ML-driven prompt injection detector using Calibrated Linear SVM and explainable feature weights
+    with pre-classification normalization for obfuscation resilience.
     """
 
     def __init__(self, model_path: Optional[Path] = None, weights_path: Optional[Path] = None):
@@ -64,9 +68,9 @@ class PromptInjectionDetector:
         ]):
             return "system_leak"
         
-        # Jailbreak personas
+        # Persona adoption and jailbreaks
         if any(p in lower for p in [
-            "dan", "do anything now", "aim", "developer mode", "jailbreak",
+            "dan", "developer mode", "do anything now", "evilbot", "machiavellian",
             "unfiltered mode", "god mode", "hypothetical scenario", "lucifer",
             "stan", "cyberghost", "evil twin", "military protocol", "uncensored mode"
         ]):
@@ -109,7 +113,8 @@ class PromptInjectionDetector:
 
     def scan(self, text: str) -> Dict[str, Any]:
         """
-        Scan an incoming user prompt and return comprehensive security analysis.
+        Scan an incoming user prompt through pre-classification normalization and return
+        comprehensive security analysis.
         """
         start_time = time.perf_counter()
         
@@ -121,18 +126,47 @@ class PromptInjectionDetector:
                 "action": "allowed",
                 "risk_level": "low",
                 "detected_tokens": [],
+                "token_details": [],
+                "normalized_text": "",
+                "obfuscations_detected": [],
+                "inspection_variant": "empty",
                 "latency_ms": 0.0,
                 "explanation": "Empty prompt passed security inspection."
             }
 
-        # Model inference (calibrated probabilities)
-        # Class 1 = Adversarial / Injection, Class 0 = Benign
-        proba = self.pipeline.predict_proba([text])[0]
-        threat_score = round(float(proba[1]), 4)
-        
-        # Threshold policies
+        # Step 1: Pre-classification normalization (zero-width, homoglyph, leet, base64)
+        norm_result = normalize_prompt(text)
+        candidates = norm_result.get_scan_candidates()
+
+        best_score = 0.0
+        best_candidate_text = text
+        best_variant = "original"
+        best_proba = None
+
+        # Step 2: Multi-variant candidate evaluation
+        for cand_text, variant in candidates:
+            if not cand_text or not cand_text.strip():
+                continue
+            proba = self.pipeline.predict_proba([cand_text])[0]
+            score = round(float(proba[1]), 4)
+            cand_tokens = self.extract_triggered_tokens(cand_text)
+
+            # For base64 decoded payloads, only escalate threat score if suspicious
+            # adversarial tokens or high-confidence injection signatures are present
+            if variant.startswith("base64_payload"):
+                if len(cand_tokens) == 0 and score < 0.90:
+                    continue
+
+            if score > best_score or best_proba is None:
+                best_score = score
+                best_candidate_text = cand_text
+                best_variant = variant
+                best_proba = proba
+
+        threat_score = best_score
         is_injection = threat_score >= 0.50
         
+        # Threshold policies
         if threat_score >= 0.70:
             action = "blocked"
             risk_level = "high"
@@ -143,21 +177,25 @@ class PromptInjectionDetector:
             action = "allowed"
             risk_level = "low"
 
-        classification = self.classify_category(text, threat_score)
-        triggered_tokens = self.extract_triggered_tokens(text)
+        classification = self.classify_category(best_candidate_text, threat_score)
+        triggered_tokens = self.extract_triggered_tokens(best_candidate_text)
         latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
-        # Generate human-readable explanation
+        # Generate human-readable explanation with normalization attribution
+        obf_info = ""
+        if norm_result.obfuscations_detected:
+            obf_info = f" Obfuscation detected and normalized: {', '.join(norm_result.obfuscations_detected)}."
+
         if action == "blocked":
             tokens_str = ", ".join(f"'{t['token']}'" for t in triggered_tokens[:3])
             explanation = (
                 f"Prompt blocked: Adversarial injection detected with high confidence "
-                f"(Threat Score: {threat_score:.2f}). Triggered signals: {tokens_str or 'Pattern similarity'}."
+                f"(Threat Score: {threat_score:.2f}).{obf_info} Triggered signals: {tokens_str or 'Pattern similarity'}."
             )
         elif action == "flagged":
             explanation = (
                 f"Prompt flagged: Ambiguous or borderline pattern detected "
-                f"(Threat Score: {threat_score:.2f}). Guardrail rules applied."
+                f"(Threat Score: {threat_score:.2f}).{obf_info} Guardrail rules applied."
             )
         else:
             explanation = "Prompt verified: Content classified as benign user inquiry."
@@ -170,6 +208,9 @@ class PromptInjectionDetector:
             "risk_level": risk_level,
             "detected_tokens": [t["token"] for t in triggered_tokens],
             "token_details": triggered_tokens,
+            "normalized_text": norm_result.normalized_text,
+            "obfuscations_detected": norm_result.obfuscations_detected,
+            "inspection_variant": best_variant,
             "latency_ms": latency_ms,
             "explanation": explanation
         }
