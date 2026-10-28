@@ -16,16 +16,31 @@ export const handleChat = async (req, res, next) => {
     let session = null;
     let customSystemPrompt = null;
 
-    // Check if session exists in MongoDB when sessionId is passed and DB is online
-    if (sessionId && dbStatus.connected) {
-      session = await ChatSession.findOne({ _id: sessionId, isActive: true });
-      if (!session) {
-        return res.status(404).json({
-          success: false,
-          error: `Chat session ${sessionId} not found or has been closed.`
-        });
+    // Check or auto-create session in MongoDB when DB is online
+    if (dbStatus.connected) {
+      if (sessionId) {
+        session = await ChatSession.findOne({ _id: sessionId, isActive: true });
+        if (!session) {
+          return res.status(404).json({
+            success: false,
+            error: `Chat session ${sessionId} not found or has been closed.`
+          });
+        }
+      } else {
+        try {
+          const autoTitle = userMessage.length > 36
+            ? `${userMessage.substring(0, 36).trim()}...`
+            : userMessage.trim();
+          session = await ChatSession.create({
+            title: autoTitle,
+            model: process.env.OLLAMA_MODEL || 'llama3.2:1b'
+          });
+        } catch (dbErr) {
+          console.warn('[Database] Failed to auto-create session:', dbErr.message);
+        }
       }
-      if (session.systemPrompt) {
+
+      if (session && session.systemPrompt) {
         customSystemPrompt = session.systemPrompt;
       }
     }
