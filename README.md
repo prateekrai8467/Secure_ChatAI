@@ -56,7 +56,7 @@ SecureChatAi/
 - [x] **Phase 2:** Basic AI Chatbot (Ollama SLM + Express API with Validation & Resilience)
 - [x] **Phase 3:** ChatGPT-Style React User Interface (Vite, Responsive, Streaming Support)
 - [x] **Phase 4:** Persistent Multiple-Chat History (MongoDB Integration & Security Telemetry)
-- [ ] **Phase 5:** Prompt Injection Detection & Security Engine (Linear SVM + TF-IDF)
+- [x] **Phase 5:** Prompt Injection Detection & Security Engine (Linear SVM + TF-IDF)
 - [ ] **Phase 6:** Automated Security Testing Framework & Benchmarks
 
 ---

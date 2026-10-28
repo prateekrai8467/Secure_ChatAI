@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { ollamaService } from '../services/ollamaService.js';
+import { detectionClient } from '../services/detectionClient.js';
 import { getDBStatus } from '../config/db.js';
 import { ChatSession } from '../models/ChatSession.js';
 import { Message } from '../models/Message.js';
@@ -107,6 +108,15 @@ export const handleChat = async (req, res, next) => {
       answer: result.answer,
       sessionId: session ? session._id : null,
       messageIds: savedAssistantMsgId ? { user: savedUserMsgId, assistant: savedAssistantMsgId } : null,
+      security: req.securityScan ? {
+        threatScore: req.securityScan.threat_score,
+        classification: req.securityScan.classification,
+        actionTaken: req.securityScan.action,
+        riskLevel: req.securityScan.risk_level,
+        detectedTokens: req.securityScan.detected_tokens || [],
+        latencyMs: req.securityScan.latency_ms || 0,
+        engine: req.securityScan.engine || 'ml_linear_svm'
+      } : null,
       metadata: {
         model: result.model,
         durationMs: result.durationMs,
@@ -124,14 +134,17 @@ export const handleChat = async (req, res, next) => {
 };
 
 /**
- * Health-check endpoint returning system, SLM, and MongoDB status.
+ * Health-check endpoint returning system, SLM, detection microservice, and MongoDB status.
  */
 export const handleHealthCheck = async (req, res) => {
-  const ollamaHealth = await ollamaService.checkHealth();
+  const [ollamaHealth, detectionHealth] = await Promise.all([
+    ollamaService.checkHealth(),
+    detectionClient.checkHealth()
+  ]);
   const dbHealth = getDBStatus();
 
   const isHealthy = ollamaHealth.isRunning && dbHealth.connected;
-  const isPartiallyAvailable = ollamaHealth.isRunning || dbHealth.connected;
+  const isPartiallyAvailable = ollamaHealth.isRunning || dbHealth.connected || detectionHealth.connected;
 
   return res.status(isPartiallyAvailable ? 200 : 503).json({
     status: isHealthy ? 'healthy' : isPartiallyAvailable ? 'degraded' : 'unhealthy',
@@ -142,6 +155,11 @@ export const handleHealthCheck = async (req, res) => {
       connected: ollamaHealth.isRunning,
       models: ollamaHealth.models || [],
       error: ollamaHealth.error || null
+    },
+    detectionService: {
+      connected: detectionHealth.connected,
+      modelLoaded: detectionHealth.modelLoaded || false,
+      algorithm: detectionHealth.metadata?.algorithm || 'Linear SVM (Calibrated Sigmoid) + TF-IDF'
     },
     database: {
       connected: dbHealth.connected,
