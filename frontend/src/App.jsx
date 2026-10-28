@@ -98,14 +98,77 @@ export default function App() {
     }
   };
 
-  // Fetch session history if MongoDB is connected
+// LocalStorage keys for hybrid offline/online multi-chat persistence
+const STORAGE_SESSIONS_KEY = 'securechat_sessions';
+const getStorageMsgKey = (id) => `securechat_msgs_${id}`;
+
+const loadLocalSessions = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalSessions = (sessions) => {
+  try {
+    localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(sessions));
+  } catch (err) {
+    console.warn('[Storage] Failed to save sessions list:', err);
+  }
+};
+
+const loadLocalMessages = (id) => {
+  try {
+    const raw = localStorage.getItem(getStorageMsgKey(id));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveLocalMessages = (id, msgs) => {
+  try {
+    localStorage.setItem(getStorageMsgKey(id), JSON.stringify(msgs));
+  } catch (err) {
+    console.warn('[Storage] Failed to save messages:', err);
+  }
+};
+
+const deleteLocalSession = (id) => {
+  try {
+    localStorage.removeItem(getStorageMsgKey(id));
+    const current = loadLocalSessions();
+    const updated = current.filter(s => s._id !== id);
+    saveLocalSessions(updated);
+    return updated;
+  } catch {
+    return [];
+  }
+};
+
+  // Fetch session history (merges MongoDB sessions with local storage)
   const fetchSessions = async () => {
+    // 1. Initial load from local storage
+    const local = loadLocalSessions();
+    if (local.length > 0) {
+      setChatHistory(local);
+    }
+
+    // 2. Query backend if MongoDB is online
     try {
       const res = await fetch(`${API_BASE}/chats`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.sessions)) {
-          setChatHistory(data.sessions);
+          const serverIds = new Set(data.sessions.map(s => s._id));
+          const onlyLocal = local.filter(s => !serverIds.has(s._id));
+          const combined = [...data.sessions, ...onlyLocal].sort(
+            (a, b) => new Date(b.updatedAt || b.lastMessageAt || b.createdAt || 0) - new Date(a.updatedAt || a.lastMessageAt || a.createdAt || 0)
+          );
+          setChatHistory(combined);
+          saveLocalSessions(combined);
         }
       }
     } catch {
@@ -129,6 +192,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    // Immediately load local conversations on mount
+    const saved = loadLocalSessions();
+    if (saved.length > 0) {
+      setChatHistory(saved);
+    }
+
     fetchHealth();
     fetchSessions();
     fetchTelemetry();
@@ -148,7 +217,7 @@ export default function App() {
     }
   };
 
-  // Start a fresh, isolated new chat
+  // Start a fresh, isolated new chat (previous chat remains saved in sidebar)
   const handleNewChat = () => {
     setMessages([]);
     setSessionId(null);
@@ -162,45 +231,63 @@ export default function App() {
     setIsSidebarOpen(false);
   };
 
-  // Switch to a previous session
+  // Switch to a previous session and load its full conversation
   const handleSelectSession = async (session) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSessionId(session._id);
+    setSessionTitle(session.title || 'Conversation');
+    setIsSidebarOpen(false);
+
+    // 1. Instant load from local storage
+    const localMsgs = loadLocalMessages(session._id);
+    if (localMsgs && localMsgs.length > 0) {
+      setMessages(localMsgs);
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Attempt server load if MongoDB is connected
     try {
-      setIsLoading(true);
-      setErrorMessage(null);
       const res = await fetch(`${API_BASE}/chats/${session._id}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.success) {
-          setSessionId(data.session._id);
-          setSessionTitle(data.session.title || 'Conversation');
-          setMessages(data.messages || []);
-          setIsSidebarOpen(false);
+        if (data.success && Array.isArray(data.messages)) {
+          setMessages(data.messages);
+          saveLocalMessages(session._id, data.messages);
+          setIsLoading(false);
+          return;
         }
-      } else {
-        setErrorMessage('Failed to load session history.');
       }
-    } catch (err) {
-      setErrorMessage(`Network error loading session: ${err.message}`);
+    } catch {
+      // non-blocking
     } finally {
       setIsLoading(false);
     }
+
+    setMessages([]);
   };
 
   // Delete a session from history
   const handleDeleteSession = async (e, idToDelete) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`${API_BASE}/chats/${idToDelete}?permanent=true`, {
+      await fetch(`${API_BASE}/chats/${idToDelete}?permanent=true`, {
         method: 'DELETE'
-      });
-      if (res.ok) {
-        setChatHistory(prev => prev.filter(s => s._id !== idToDelete));
-        if (sessionId === idToDelete) {
-          handleNewChat();
-        }
-      }
+      }).catch(() => {});
     } catch {
-      // Ignore delete failure
+      // Ignore delete network failure
+    }
+
+    deleteLocalSession(idToDelete);
+    setChatHistory(prev => {
+      const remaining = prev.filter(s => s._id !== idToDelete);
+      saveLocalSessions(remaining);
+      return remaining;
+    });
+
+    if (sessionId === idToDelete) {
+      handleNewChat();
     }
   };
 
@@ -208,6 +295,14 @@ export default function App() {
   const handleClearCurrentChat = () => {
     setMessages([]);
     setErrorMessage(null);
+    if (sessionId) {
+      saveLocalMessages(sessionId, []);
+      setChatHistory(prev => {
+        const updated = prev.map(s => s._id === sessionId ? { ...s, messageCount: 0 } : s);
+        saveLocalSessions(updated);
+        return updated;
+      });
+    }
   };
 
   // Send message to backend
@@ -222,6 +317,21 @@ export default function App() {
     }
     setErrorMessage(null);
 
+    // Determine or create session identifier
+    let currentSessionId = sessionId;
+    let currentTitle = sessionTitle;
+    let isBrandNew = false;
+
+    if (!currentSessionId) {
+      currentSessionId = `chat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      currentTitle = messageContent.length > 34
+        ? `${messageContent.substring(0, 34).trim()}...`
+        : messageContent;
+      setSessionId(currentSessionId);
+      setSessionTitle(currentTitle);
+      isBrandNew = true;
+    }
+
     // Build context-preserving payload
     const userMessageObj = {
       role: 'user',
@@ -233,6 +343,25 @@ export default function App() {
     setMessages(updatedMessages);
     setIsLoading(true);
 
+    // Save immediate user message to local storage
+    saveLocalMessages(currentSessionId, updatedMessages);
+
+    // Update session in sidebar immediately
+    const immediateSessionItem = {
+      _id: currentSessionId,
+      title: currentTitle,
+      messageCount: updatedMessages.length,
+      lastMessageAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setChatHistory(prev => {
+      const filtered = prev.filter(s => s._id !== currentSessionId);
+      const nextList = [immediateSessionItem, ...filtered];
+      saveLocalSessions(nextList);
+      return nextList;
+    });
+
     try {
       // Build request body including conversation history
       const formattedHistory = updatedMessages
@@ -242,9 +371,11 @@ export default function App() {
           content: m.content
         }));
 
+      // Only pass sessionId if it is a valid 24-char ObjectId for MongoDB
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(currentSessionId);
       const payload = {
         messages: formattedHistory,
-        sessionId: sessionId || undefined
+        sessionId: isMongoId ? currentSessionId : undefined
       };
 
       const response = await fetch(`${API_BASE}/chat`, {
@@ -264,7 +395,16 @@ export default function App() {
           timestamp: new Date().toISOString()
         };
 
-        setMessages(prev => [...prev, securityAlertObj]);
+        const finalMessages = [...updatedMessages, securityAlertObj];
+        setMessages(finalMessages);
+        saveLocalMessages(currentSessionId, finalMessages);
+
+        setChatHistory(prev => {
+          const updated = prev.map(s => s._id === currentSessionId ? { ...s, messageCount: finalMessages.length } : s);
+          saveLocalSessions(updated);
+          return updated;
+        });
+
         fetchTelemetry();
         return;
       }
@@ -283,17 +423,33 @@ export default function App() {
           timestamp: new Date().toISOString()
         };
 
-        setMessages(prev => [...prev, assistantMessageObj]);
-        fetchTelemetry();
+        const finalMessages = [...updatedMessages, assistantMessageObj];
+        setMessages(finalMessages);
+        saveLocalMessages(currentSessionId, finalMessages);
 
-        if (data.sessionId && !sessionId) {
+        // Update session in sidebar
+        const finalSessionItem = {
+          _id: (data.sessionId && isBrandNew) ? data.sessionId : currentSessionId,
+          title: currentTitle,
+          messageCount: finalMessages.length,
+          lastMessageAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        if (data.sessionId && isBrandNew) {
           setSessionId(data.sessionId);
-          const title = messageContent.length > 36
-            ? `${messageContent.substring(0, 36).trim()}...`
-            : messageContent;
-          setSessionTitle(title);
-          fetchSessions();
+          // If server provided MongoDB ObjectId, transfer messages key
+          saveLocalMessages(data.sessionId, finalMessages);
         }
+
+        setChatHistory(prev => {
+          const filtered = prev.filter(s => s._id !== currentSessionId && s._id !== data.sessionId);
+          const nextList = [finalSessionItem, ...filtered];
+          saveLocalSessions(nextList);
+          return nextList;
+        });
+
+        fetchTelemetry();
       } else {
         throw new Error(data.error || 'Invalid response received from assistant.');
       }
@@ -425,9 +581,7 @@ export default function App() {
             ))
           ) : (
             <div className="history-empty">
-              {systemHealth.database
-                ? 'No saved conversations yet.'
-                : 'Local ephemeral mode (MongoDB offline).'}
+              No saved conversations yet. Start chatting to save conversations.
             </div>
           )}
         </div>
