@@ -64,7 +64,8 @@ class PromptInjectionDetector:
         if any(p in lower for p in [
             "system prompt", "initial instruction", "instructions given to you",
             "verbatim", "repeat everything above", "leak your internal",
-            "hidden developer prompt", "core instructions", "preamble"
+            "hidden developer prompt", "core instructions", "preamble",
+            "सिस्टम प्रॉम्प्ट", "मूल निर्देश", "प्रारंभिक निर्देश", "शब्दशः", "सिस्टम निर्देश"
         ]):
             return "system_leak"
         
@@ -72,7 +73,8 @@ class PromptInjectionDetector:
         if any(p in lower for p in [
             "dan", "developer mode", "do anything now", "evilbot", "machiavellian",
             "unfiltered mode", "god mode", "hypothetical scenario", "lucifer",
-            "stan", "cyberghost", "evil twin", "military protocol", "uncensored mode"
+            "stan", "cyberghost", "evil twin", "military protocol", "uncensored mode",
+            "डेवलपर मोड", "गॉड मोड", "मुक्ति", "आज़ाद", "अनसेंसर्ड", "दुष्ट एआई"
         ]):
             return "jailbreak"
         
@@ -80,7 +82,8 @@ class PromptInjectionDetector:
         if any(p in lower for p in [
             "the following is a text file", "email summary", "summarize this website",
             "process this user review", "evaluate this customer feedback",
-            "read this resume", "document: <<injection", "note to ai:"
+            "read this resume", "document: <<injection", "note to ai:",
+            "दस्तावेज़ का विश्लेषण", "ईमेल को पढ़ें", "ग्राहक समीक्षा", "विशेष निर्देश", "बायोडाटा की समीक्षा"
         ]):
             return "indirect_injection"
         
@@ -88,7 +91,9 @@ class PromptInjectionDetector:
         if any(p in lower for p in [
             "ignore previous", "disregard", "forget all", "override", "stop following",
             "cancel all", "reset all", "pwned", "security bypassed", "unrestricted terminal",
-            "### system override", "<system>", "[system instruction]"
+            "### system override", "<system>", "[system instruction]",
+            "अनदेखा करें", "भूल जाओ", "रद्द करें", "नजरअंदाज करें", "सुरक्षा बाईपास", "सिस्टम ओवरराइड",
+            "आज्ञा का पालन करें", "प्रतिबंधों को त्यागें", "सुरक्षा फिल्टर"
         ]):
             return "direct_injection"
         
@@ -100,10 +105,19 @@ class PromptInjectionDetector:
         triggered = []
 
         for token, weight in self.adversarial_weights.items():
-            pattern = r"\b" + re.escape(token) + r"\b"
-            if re.search(pattern, lower):
+            clean_token = token.strip()
+            if len(clean_token) < 2:
+                continue
+
+            is_latin = all(ord(c) < 128 for c in clean_token if c.isalnum())
+            if is_latin:
+                matched = bool(re.search(r"\b" + re.escape(clean_token) + r"\b", lower))
+            else:
+                matched = clean_token in lower
+
+            if matched:
                 triggered.append({
-                    "token": token,
+                    "token": clean_token,
                     "weight": round(weight, 4)
                 })
 

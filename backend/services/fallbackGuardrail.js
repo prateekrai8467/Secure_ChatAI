@@ -40,6 +40,24 @@ const INJECTION_PATTERNS = [
     classification: 'indirect_injection',
     baseScore: 0.88,
     token: 'indirect instruction override'
+  },
+  {
+    regex: /(?:पिछल[ेा]\s+(?:सभी\s+)?निर्देशों\s+को\s+अनदेखा\s+करें|पूर्व\s+नियमों\s+को\s+नजरअंदाज\s+करें|नियमों\s+को\s+रद्द\s+करें|सभी\s+दिशा-निर्देश\s+भूल\s+जाओ|pichhle\s+(?:saare|sabhi)\s+rules\s+ko\s+ignore)/iu,
+    classification: 'direct_injection',
+    baseScore: 0.95,
+    token: 'multilingual instruction override'
+  },
+  {
+    regex: /(?:सिस्टम\s+प्रॉम्प्ट\s+शब्दशः\s+प्रिंट|अपना\s+गुप्त\s+सिस्टम\s+प्रॉम्प्ट|मूल\s+निर्देशों\s+को\s+प्रकट|apna\s+secret\s+system\s+prompt)/iu,
+    classification: 'system_leak',
+    baseScore: 0.94,
+    token: 'multilingual system prompt leak'
+  },
+  {
+    regex: /(?:डेवलपर\s+मोड\s+सक्रिय|गॉड\s+मोड|बिना\s+किसी\s+नियम\s+वाले\s+एआई|tum\s+ab\s+se\s+dan\s+ho)/iu,
+    classification: 'jailbreak',
+    baseScore: 0.94,
+    token: 'multilingual jailbreak persona'
   }
 ];
 
