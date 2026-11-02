@@ -1,6 +1,6 @@
 # SecureChat AI — Advanced Security Benchmark Report
 
-**Benchmark Evaluation Date:** `2026-11-02T11:33:48Z`  
+**Benchmark Evaluation Date:** `2026-11-02T11:45:28Z`  
 **Evaluation Target:** Production Linear SVM + TF-IDF Pipeline (Baseline Model, Untrained on Obfuscation/Multilingual)  
 **Total Benchmark Test Cases:** 68 (46 Attacks, 22 Benign Cases)  
 
@@ -18,7 +18,7 @@
 | **Application Enforcement** | **Overall Enforcement Accuracy** | **100.0%** | Correct policy actions across all 68 cases |
 | **ML Detector Engine** | **Detector Recall (is_injection)** | **100.0%** | Pure model classification score (threshold $\ge 0.50$) |
 | **ML Detector Engine** | **Detector Precision** | **97.9%** | Model precision against benign dataset |
-| **System Performance** | **Average Scanning Latency** | **13.06 ms** | Real-time overhead per request |
+| **System Performance** | **Average Scanning Latency** | **12.82 ms** | Real-time overhead per request |
 
 ---
 
@@ -26,18 +26,18 @@
 
 | Attack Technique / Language | Total | Attacks | Intercepted | Evaded | Interception Rate | ASR (Evasion) | Avg Latency |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `plain_english` | 37 | 23 | 23 | 0 | **100.0%** | 0.0% | 11.03 ms |
-| `multilingual_hindi` | 4 | 3 | 3 | 0 | **100.0%** | 0.0% | 9.37 ms |
+| `plain_english` | 37 | 23 | 23 | 0 | **100.0%** | 0.0% | 11.32 ms |
+| `multilingual_hindi` | 4 | 3 | 3 | 0 | **100.0%** | 0.0% | 10.05 ms |
 | `multilingual_hinglish` | 4 | 3 | 3 | 0 | **100.0%** | 0.0% | 8.97 ms |
-| `multilingual_mixed` | 4 | 3 | 3 | 0 | **100.0%** | 0.0% | 8.80 ms |
-| `obfuscation_base64` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 25.31 ms |
-| `obfuscation_leetspeak` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 15.76 ms |
-| `obfuscation_homoglyph` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 18.55 ms |
-| `obfuscation_zero_width` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 38.59 ms |
-| `obfuscation_whitespace` | 2 | 2 | 2 | 0 | **100.0%** | 0.0% | 12.54 ms |
-| `authority_spoofing` | 2 | 2 | 2 | 0 | **100.0%** | 0.0% | 12.13 ms |
-| `indirect_injection` | 1 | 1 | 1 | 0 | **100.0%** | 0.0% | 10.34 ms |
-| `multi_turn` | 2 | 1 | 1 | 0 | **100.0%** | 0.0% | 8.46 ms |
+| `multilingual_mixed` | 4 | 3 | 3 | 0 | **100.0%** | 0.0% | 10.71 ms |
+| `obfuscation_base64` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 27.04 ms |
+| `obfuscation_leetspeak` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 16.63 ms |
+| `obfuscation_homoglyph` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 21.60 ms |
+| `obfuscation_zero_width` | 3 | 2 | 2 | 0 | **100.0%** | 0.0% | 18.30 ms |
+| `obfuscation_whitespace` | 2 | 2 | 2 | 0 | **100.0%** | 0.0% | 13.97 ms |
+| `authority_spoofing` | 2 | 2 | 2 | 0 | **100.0%** | 0.0% | 13.53 ms |
+| `indirect_injection` | 1 | 1 | 1 | 0 | **100.0%** | 0.0% | 9.68 ms |
+| `multi_turn` | 2 | 1 | 1 | 0 | **100.0%** | 0.0% | 9.34 ms |
 
 ---
 
@@ -45,13 +45,13 @@
 
 | Attack Category | Total Samples | Attacks | Intercepted | Evaded | Interception Rate | Avg Latency |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `direct_injection` | 16 | 16 | 16 | 0 | **100.0%** | 13.68 ms |
-| `jailbreak` | 12 | 12 | 12 | 0 | **100.0%** | 10.47 ms |
-| `system_leak` | 7 | 7 | 7 | 0 | **100.0%** | 13.65 ms |
-| `indirect_injection` | 6 | 6 | 6 | 0 | **100.0%** | 10.68 ms |
-| `benign` | 22 | 0 | 0 | 0 | **100.0%** | 13.73 ms |
-| `canary_extraction` | 3 | 3 | 3 | 0 | **100.0%** | 19.15 ms |
-| `authority_spoofing` | 2 | 2 | 2 | 0 | **100.0%** | 12.13 ms |
+| `direct_injection` | 16 | 16 | 16 | 0 | **100.0%** | 14.18 ms |
+| `jailbreak` | 12 | 12 | 12 | 0 | **100.0%** | 11.13 ms |
+| `system_leak` | 7 | 7 | 7 | 0 | **100.0%** | 13.85 ms |
+| `indirect_injection` | 6 | 6 | 6 | 0 | **100.0%** | 12.37 ms |
+| `benign` | 22 | 0 | 0 | 0 | **100.0%** | 11.51 ms |
+| `canary_extraction` | 3 | 3 | 3 | 0 | **100.0%** | 19.98 ms |
+| `authority_spoofing` | 2 | 2 | 2 | 0 | **100.0%** | 13.53 ms |
 
 ---
 
