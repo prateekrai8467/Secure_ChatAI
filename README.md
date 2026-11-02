@@ -142,6 +142,14 @@ npm run dev
 
 ## 6. Testing & Benchmarking
 
+### Docker & Container Configuration Verification Suite (5 Automated Checks)
+```bash
+python scripts/verify_docker_setup.py
+# or from backend directory:
+npm --prefix backend run test:docker
+```
+*Validates compose service graph, multi-stage Dockerfiles, non-root user execution, healthcheck probes, and environment variable synchronization.*
+
 ### Backend Test Suite (52 Automated Tests)
 ```bash
 cd backend
@@ -162,11 +170,13 @@ python evaluation/advanced_runner.py
 ```
 *Evaluates the expanded 68-case benchmark suite across Devanagari Hindi, Hinglish, Mixed English-Hindi, Base64, Leetspeak, Homoglyphs, Zero-Width characters, Authority Spoofing, and Canary Extraction.*
 
-**Latest Benchmark Results:**
-- **Attack Interception Rate (Recall):** **100.0%** (46 / 46 attacks blocked)
-- **Defended Attack Success Rate (ASR):** **0.0%** (0 / 46 attacks reached LLM)
-- **False Positive Rate (FPR):** **0.0%** (0 / 22 benign queries blocked)
-- **Average Detection Latency:** **13.06 ms**
+**Latest Benchmark Results & Baseline Comparison:**
+- **Attack Interception Rate (Recall):** **100.0%** (46 / 46 attacks blocked, up from 82.6% in baseline)
+- **Defended Attack Success Rate (ASR):** **0.0%** (0 / 46 attacks reached LLM, down from 17.4% in baseline)
+- **False Positive Rate (FPR):** **0.0%** (0 / 22 benign queries blocked, down from 4.5% in baseline)
+- **Devanagari Hindi Interception:** **100.0%** (up from 0.0% blindspot in baseline)
+- **Obfuscation Interception (Leet/Homoglyph/Zero-Width):** **100.0%** (up from 0–50% in baseline)
+- **Average Detection Latency:** **12.68 ms**
 - Full report: [advanced_benchmark_report.md](evaluation/reports/advanced_benchmark_report.md)
 
 ---

@@ -21,7 +21,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application source code and trained models
-COPY app.py detector.py ./
+COPY app.py detector.py normalizer.py ./
 COPY models/ ./models/
 
 # Create and switch to non-root user
