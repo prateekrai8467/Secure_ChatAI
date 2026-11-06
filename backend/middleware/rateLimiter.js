@@ -56,3 +56,4 @@ export const rateLimiter = (req, res, next) => {
 };
 
 export default rateLimiter;
+
