@@ -160,6 +160,12 @@ npm test
 ```
 *Validates API health, input validation, context integrity, error resilience, Mongoose schemas, and guardrail middleware.*
 
+### Live End-to-End Stack Integration Suite (8 Live Tests)
+```bash
+npm --prefix backend run test:e2e
+```
+*Validates real communication between Express API, Detection Microservice, and live Ollama `llama3.2:1b`, measuring live English/Hindi/Hinglish generation and HTTP 403 attack interception.*
+
 ### Detector & Normalizer Unit Tests (21 Tests)
 ```bash
 python detection-service/test_normalizer.py

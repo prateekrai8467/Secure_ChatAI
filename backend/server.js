@@ -7,6 +7,7 @@ import chatRoutes from './routes/chat.js';
 import sessionsRoutes from './routes/sessions.js';
 import telemetryRoutes from './routes/telemetry.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
+import { rateLimiter } from './middleware/rateLimiter.js';
 
 dotenv.config();
 
@@ -31,6 +32,9 @@ if (process.env.NODE_ENV === 'development') {
     next();
   });
 }
+
+// Rate limiting protection
+app.use('/api', rateLimiter);
 
 // API Routes
 app.use('/api', chatRoutes);
