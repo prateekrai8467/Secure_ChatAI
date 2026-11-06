@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { connectDB } from './config/db.js';
+import { connectDB, disconnectDB } from './config/db.js';
 import chatRoutes from './routes/chat.js';
 import sessionsRoutes from './routes/sessions.js';
 import telemetryRoutes from './routes/telemetry.js';
@@ -51,7 +51,7 @@ if (!isTest) {
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 
 if (isMain && process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`========================================`);
     console.log(` SecureChat AI Backend API`);
     console.log(` Port:       http://localhost:${PORT}`);
@@ -61,6 +61,28 @@ if (isMain && process.env.NODE_ENV !== 'test') {
     console.log(` Database:   ${process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/securechat_ai'}`);
     console.log(`========================================`);
   });
+
+  const gracefulShutdown = (signal) => {
+    console.log(`\n[${signal}] Signal received. Closing HTTP server gracefully...`);
+    server.close(async () => {
+      console.log('[Server] HTTP connections closed.');
+      try {
+        await disconnectDB();
+        console.log('[Database] MongoDB connection closed.');
+      } catch (err) {
+        console.warn('[Database] Error closing connection:', err.message);
+      }
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      console.error('[Server] Forced shutdown after timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 export default app;

@@ -39,6 +39,16 @@ export const connectDB = async () => {
 };
 
 /**
+ * Disconnect from MongoDB gracefully.
+ */
+export const disconnectDB = async () => {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.close(false);
+    isConnected = false;
+  }
+};
+
+/**
  * Get current database status.
  */
 export const getDBStatus = () => {

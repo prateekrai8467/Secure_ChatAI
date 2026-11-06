@@ -1,5 +1,7 @@
 # SecureChat AI
 
+[![CI Pipeline](https://github.com/prateekrai8467/Secure_ChatAI/actions/workflows/ci.yml/badge.svg)](https://github.com/prateekrai8467/Secure_ChatAI/actions/workflows/ci.yml)
+
 A ChatGPT-style conversational AI application engineered to investigate, detect, evaluate, and mitigate prompt injection attacks against Large and Small Language Models.
 
 ---
@@ -85,6 +87,7 @@ SecureChatAi/
 - [x] **Phase 7:** Repository & Engineering Quality (Documentation, zero-leakage splits, 52/52 backend tests)
 - [x] **Phase 8:** Dockerization & Multi-Container Orchestration (`docker-compose.yml`, health probes, volume persistence)
 - [x] **Phase 9:** Advanced Security Benchmark & Validation (68-case suite, 100% Interception, 0% FPR, [Benchmark Report](evaluation/reports/advanced_benchmark_report.md))
+- [x] **Phase 10:** CI/CD Automation & Production Hardening (GitHub Actions workflow, graceful container shutdown, full 5-stage validation stack)
 
 ---
 

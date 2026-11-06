@@ -1,0 +1,62 @@
+name: SecureChat AI CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    name: Validation, Security & Regression Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: detection-service/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r detection-service/requirements.txt
+
+      - name: Install Backend Dependencies
+        run: npm ci --prefix backend
+
+      - name: Install Frontend Dependencies
+        run: npm ci --prefix frontend
+
+      - name: 1. Verify Docker & Container Orchestration Setup (5 Checks)
+        run: python scripts/verify_docker_setup.py
+
+      - name: 2. Run Backend Unit, Persistence & Security Tests (52 Tests)
+        run: npm --prefix backend test
+
+      - name: 3. Run Pre-Classification Normalizer Tests (12 Tests)
+        run: python detection-service/test_normalizer.py
+
+      - name: 4. Run Detector Engine Unit Tests (9 Tests)
+        run: python detection-service/test_detector.py
+
+      - name: 5. Run 68-Case Advanced Multilingual Security Benchmark
+        run: python evaluation/advanced_runner.py
+
+      - name: 6. Build Frontend Production Client
+        run: npm --prefix frontend run build
+

@@ -147,3 +147,10 @@ sequenceDiagram
 | **MongoDB Disconnected** | Chat history persistence unavailable | Backend operates in stateless mode. Frontend falls back to browser `localStorage` for conversation continuity. |
 | **Ollama Timeout (>120s)** | SLM inference stalled | Graceful HTTP 504 Gateway Timeout returned with user-friendly retry message; prevents hung connections. |
 | **Ollama Offline** | Model generation unavailable | HTTP 503 Service Unavailable returned with actionable setup instructions. Health check reports degraded state. |
+
+---
+
+## 5. Deployment Lifecycle & CI/CD Automation
+
+- **Automated Continuous Integration (`.github/workflows/ci.yml`):** Runs the full 5-stage validation stack (Docker setup check, 52 backend tests, 12 normalizer tests, 9 detector tests, 68-case security benchmark, and Vite production asset compilation) on every push and pull request to `main`.
+- **Graceful Container Shutdown:** Both Node.js and MongoDB connections handle `SIGTERM` and `SIGINT` signals by finishing in-flight requests, closing HTTP listeners, and safely terminating database sessions before process exit.
