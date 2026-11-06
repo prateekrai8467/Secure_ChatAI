@@ -77,3 +77,4 @@ docker compose up -d --build
 - **Host Docker CLI:** The development machine host does not have the Docker daemon installed; all container manifests are validated via `verify_docker_setup.py` and ready for deployment on any Docker-enabled host.
 - **Single-Layer Base64:** Decodes single-layer Base64 candidates bounded at 4KB. Multi-layer nested recursive Base64 encoding is intentionally constrained to prevent ReDoS.
 - **Language Scope:** v1.0.0 covers English, Devanagari Hindi, and Hinglish. Additional Indic scripts (Bengali, Tamil) are planned for v2.0.0.
+

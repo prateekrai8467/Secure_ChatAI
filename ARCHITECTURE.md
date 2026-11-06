@@ -244,3 +244,4 @@ erDiagram
 1. `ChatSession`: `{ lastMessageAt: -1 }` for rapid retrieval of recent conversations.
 2. `Message`: `{ sessionId: 1, createdAt: 1 }` for ordered retrieval of conversation history.
 3. `SecurityTelemetry`: `{ threatScore: -1, createdAt: -1 }` for security audit queries and threat aggregation.
+
